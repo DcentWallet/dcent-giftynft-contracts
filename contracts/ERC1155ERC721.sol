@@ -68,7 +68,7 @@ contract ERC1155ERC721 is OwnableProxyImpl, ERC1155, ERC721{
         feeForMint = _mintFee;
     }
 
-    function setMintingFee(uint _fee) external onlyOwner {
+    function setMintingFee(uint256 _fee) external onlyOwner {
         feeForMint = _fee;
     }
 
