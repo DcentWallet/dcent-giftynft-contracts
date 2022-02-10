@@ -170,7 +170,8 @@ contract ERC1155ERC721 is OwnableProxyImpl, ERC1155, ERC721{
             _owner,
             tokenId,
             _includeBalance,
-            _data
+            _data,
+            false
         );
     }
 
@@ -196,13 +197,15 @@ contract ERC1155ERC721 is OwnableProxyImpl, ERC1155, ERC721{
         address _owner,
         uint256 _tokenId,
         uint256 _includeBalance,
-        bytes memory _data
+        bytes memory _data,
+        bool _extraction
     ) internal {
         uint256 uriId = _tokenId & URI_ID;
         uint256 includeBalId = _tokenId & NOT_NFT_INDEX;
-
-        require(uint256(metadataHash[uriId]) == 0, "exist");
-        metadataHash[uriId] = _hash;
+        if (!_extraction) {
+            require(uint256(metadataHash[uriId]) == 0, "exist");    
+            metadataHash[uriId] = _hash;
+        }
         tokenIncludeBanace[includeBalId] = _includeBalance;
 
         if (_supply == 1) {
@@ -806,7 +809,8 @@ contract ERC1155ERC721 is OwnableProxyImpl, ERC1155, ERC721{
             _to,
             newTokenId,
             tokenIncludeBanace[includeBalId],
-            ""
+            "",
+            true
         );
     }
 }
