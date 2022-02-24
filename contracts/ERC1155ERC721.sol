@@ -8,15 +8,16 @@ import "./Interface/ERC1155TokenReceiver.sol";
 
 import './Interface/ERC721.sol';
 import './Interface/ERC721TokenReceiver.sol';
+import './Interface/ERC20.sol';
 
 import './Libraries/AddressUtils.sol';
 import './Libraries/ObjectLib32.sol';
-import './Libraries/SafeMath.sol';
+// import './Libraries/SafeMath.sol';
 
 contract ERC1155ERC721 is OwnableProxyImpl, ERC1155, ERC721{
     // Libraries
     using AddressUtils for address;
-    using SafeMath for uint256;
+    // using SafeMath for uint256;
     using ObjectLib32 for uint256;
     using ObjectLib32 for ObjectLib32.Operations;
     
@@ -56,6 +57,7 @@ contract ERC1155ERC721 is OwnableProxyImpl, ERC1155, ERC721{
     mapping(uint256 => uint256) private tokenIncludeBanace;
     mapping(address => uint48) private mintCounter;
     uint256 accmulateFee;
+    mapping(uint256 => address) private balanceContract;
     
     // Implementation
 
@@ -103,12 +105,25 @@ contract ERC1155ERC721 is OwnableProxyImpl, ERC1155, ERC721{
         return tokenIncludeBanace[includeBalId];
     }
 
+    function contractOfToken(uint256 _tokenId) public view returns (address){
+        uint256 includeBalId = _tokenId & NOT_NFT_INDEX;
+        return balanceContract[includeBalId];
+    }
+
     function mintCount(address _owner)
         public
         view
         returns (uint48)
     {
        return mintCounter[_owner];
+    }
+
+    function transferWorth(address _to, uint256 _amount, address _erc20Contract) internal {
+        if(address(0) == _erc20Contract){
+            payable(_to).transfer(_amount);
+        }else{
+            ERC20(_erc20Contract).transfer(_to, _amount);
+        }
     }
 
     // only owner can envelope NFT/FT
@@ -129,7 +144,7 @@ contract ERC1155ERC721 is OwnableProxyImpl, ERC1155, ERC721{
             uint256[] memory tokenWorth = new uint256[](1);
             tokenWorth[0] = tokenIncludeBanace[includeBalId];
             tokenIncludeBanace[includeBalId] = 0;
-            payable(_to).transfer(tokenWorth[0]);
+            transferWorth(_to, tokenWorth[0], balanceContract[includeBalId]);
             emit URI(tokenURI(_tokenId), _tokenId);
         } else {
             require(_nNum > 0);
@@ -138,7 +153,8 @@ contract ERC1155ERC721 is OwnableProxyImpl, ERC1155, ERC721{
             packedTokenBalance[msg.sender][bin] = packedTokenBalance[msg.sender][bin]
                 .updateTokenBalance(index, _nNum, ObjectLib32.Operations.SUB);
             
-            payable(_to).transfer(tokenIncludeBanace[includeBalId] * _nNum);
+            // payable(_to).transfer(tokenIncludeBanace[includeBalId] * _nNum);
+            transferWorth(_to, tokenIncludeBanace[includeBalId] * _nNum, balanceContract[includeBalId]);
             emit TransferSingle(msg.sender, msg.sender, address(0), _tokenId, _nNum);
         }
         
@@ -147,7 +163,6 @@ contract ERC1155ERC721 is OwnableProxyImpl, ERC1155, ERC721{
 
     // Mint ///////////////////////////////////////////////////////////////////////////
     function mint(
-        // address _creator,//
         uint48 _packId,
         bytes32 _hash,
         uint256 _supply,
@@ -161,9 +176,44 @@ contract ERC1155ERC721 is OwnableProxyImpl, ERC1155, ERC721{
         uint256 mintFee = feeForMint * _supply;
         require(msg.value >= mintFee);
         require ((msg.value - mintFee) == (_supply * _includeBalance));
-        accmulateFee = accmulateFee.add(mintFee);
+        // accmulateFee = accmulateFee.add(mintFee);
+        accmulateFee = accmulateFee + mintFee;
         tokenId = generateTokenId(msg.sender, _supply, _packId, 0);
         _mint(
+            address(0),
+            _hash,
+            _supply,
+            msg.sender,
+            _owner,
+            tokenId,
+            _includeBalance,
+            _data,
+            false
+        );
+    }
+
+    //mint include ERC20
+    function mint(
+        address _contract,//
+        uint48 _packId,
+        bytes32 _hash,
+        uint256 _supply,
+        address _owner,
+        uint256 _includeBalance,
+        bytes calldata _data
+    ) external payable returns (uint256 tokenId) {
+        require(_owner != address(0));
+        // require(_creator == msg.sender);//
+        require(_supply > 0 && _supply < 2**32);
+        uint256 mintFee = feeForMint * _supply;
+        require(msg.value == mintFee);
+        
+        require(ERC20(_contract).transferFrom(msg.sender, address(this), (_supply * _includeBalance)) == true);
+        // accmulateFee = accmulateFee.add(mintFee);
+        accmulateFee = accmulateFee + mintFee;
+        tokenId = generateTokenId(msg.sender, _supply, _packId, 0);
+        _mint(
+            _contract,
             _hash,
             _supply,
             msg.sender,
@@ -191,6 +241,7 @@ contract ERC1155ERC721 is OwnableProxyImpl, ERC1155, ERC721{
     }
 
     function _mint(
+        address _erc20contract,
         bytes32 _hash,
         uint256 _supply,
         address _operator,
@@ -206,8 +257,13 @@ contract ERC1155ERC721 is OwnableProxyImpl, ERC1155, ERC721{
             require(uint256(metadataHash[uriId]) == 0, "exist");    
             metadataHash[uriId] = _hash;
         }
-        tokenIncludeBanace[includeBalId] = _includeBalance;
 
+        tokenIncludeBanace[includeBalId] = _includeBalance;
+        
+        if(_erc20contract != address(0)){
+            balanceContract[includeBalId] = _erc20contract;
+        }
+ 
         if (_supply == 1) {
             // ERC721
             numNFTPerAddress[_owner]++;
@@ -373,18 +429,16 @@ contract ERC1155ERC721 is OwnableProxyImpl, ERC1155, ERC721{
                 // If first bin
                 if (lastBin == 0) {
                     lastBin = bin;
-                    balFrom = ObjectLib32.updateTokenBalance(
-                        packedTokenBalance[_from][bin],
-                        index,
-                        _values[i],
-                        ObjectLib32.Operations.SUB
-                    );
-                    balTo = ObjectLib32.updateTokenBalance(
-                        packedTokenBalance[_to][bin],
-                        index,
-                        _values[i],
-                        ObjectLib32.Operations.ADD
-                    );
+                    balFrom = packedTokenBalance[_from][bin].updateTokenBalance(
+                                index,
+                                _values[i],
+                                ObjectLib32.Operations.SUB
+                            );
+                    balTo = packedTokenBalance[_to][bin].updateTokenBalance(
+                                index,
+                                _values[i],
+                                ObjectLib32.Operations.ADD
+                            );
                 } else {
                     // If new bin
                     if (bin != lastBin) {
@@ -802,7 +856,9 @@ contract ERC1155ERC721 is OwnableProxyImpl, ERC1155, ERC721{
             (_collectionIndex) *
             2**(256 - 160 - 1 - 32);
         nextCollectionIndex[_tokenId] = _collectionIndex + 1;
+
         _mint(
+            balanceContract[includeBalId],
             metadataHash[_tokenId & URI_ID],
             1,
             _operator,

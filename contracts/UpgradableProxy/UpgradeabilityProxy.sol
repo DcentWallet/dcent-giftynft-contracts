@@ -3,7 +3,7 @@
 pragma solidity ^0.8.0;
 
 import "./ProxyBase.sol";
-import "../Libraries/AddressUtils.sol";
+import "../Libraries/AddressUtilsInternal.sol";
 
 /**
  * @title UpgradeabilityProxy
@@ -73,7 +73,7 @@ contract UpgradeabilityProxy is ProxyBase {
    */
     function _setImplementation(address newImplementation) private {
         require(
-            AddressUtils.isContract(newImplementation),
+            AddressUtilsInternal.isContract(newImplementation),
             "Cannot set a proxy implementation to a non-contract address"
         );
 

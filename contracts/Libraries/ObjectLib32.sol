@@ -21,7 +21,7 @@ library ObjectLib32 {
      * @return index ID's index within that bin
      */
     function getTokenBinIndex(uint256 _tokenId)
-        internal
+        public
         pure
         returns (uint256 bin, uint256 index)
     {
@@ -45,7 +45,7 @@ library ObjectLib32 {
         uint256 _index,
         uint256 _amount,
         Operations _operation
-    ) internal pure returns (uint256 newBinBalance) {
+    ) public pure returns (uint256 newBinBalance) {
         uint256 objectBalance = 0;
         if (_operation == Operations.ADD) {
             objectBalance = getValueInBin(_binBalances, _index);
@@ -76,7 +76,7 @@ library ObjectLib32 {
   * @return Value at given _index in _bin
   */
     function getValueInBin(uint256 _binValue, uint256 _index)
-        internal
+        public
         pure
         returns (uint256)
     {
@@ -96,7 +96,7 @@ library ObjectLib32 {
   * @return Value at given _index in _bin
   */
     function writeValueInBin(uint256 _binValue, uint256 _index, uint256 _amount)
-        internal
+        public
         pure
         returns (uint256)
     {
