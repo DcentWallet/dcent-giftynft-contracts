@@ -8,7 +8,7 @@ import "./Interface/ERC1155TokenReceiver.sol";
 
 import './Interface/ERC721.sol';
 import './Interface/ERC721TokenReceiver.sol';
-import './Interface/ERC20.sol';
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import './Libraries/AddressUtils.sol';
 import './Libraries/ObjectLib32.sol';
@@ -122,7 +122,7 @@ contract ERC1155ERC721 is OwnableProxyImpl, ERC1155, ERC721{
         if(address(0) == _erc20Contract){
             payable(_to).transfer(_amount);
         }else{
-            ERC20(_erc20Contract).transfer(_to, _amount);
+            IERC20(_erc20Contract).transfer(_to, _amount);
         }
     }
 
@@ -208,7 +208,7 @@ contract ERC1155ERC721 is OwnableProxyImpl, ERC1155, ERC721{
         uint256 mintFee = feeForMint * _supply;
         require(msg.value == mintFee);
         
-        require(ERC20(_contract).transferFrom(msg.sender, address(this), (_supply * _includeBalance)) == true);
+        require(IERC20(_contract).transferFrom(msg.sender, address(this), (_supply * _includeBalance)) == true);
         // accmulateFee = accmulateFee.add(mintFee);
         accmulateFee = accmulateFee + mintFee;
         tokenId = generateTokenId(msg.sender, _supply, _packId, 0);
@@ -364,6 +364,34 @@ contract ERC1155ERC721 is OwnableProxyImpl, ERC1155, ERC721{
             ),
             "rejected"
         );
+    }
+
+    function transferMany(
+        address _from,
+        address[] calldata _to,
+        uint256 _id,
+        uint256 _value,
+        bytes calldata _data
+    ) external {
+        require(_id & IS_NFT == 0);
+        require(balanceOf(_from, _id) >= (_value * _to.length));
+
+        for (uint256 i = 0; i < _to.length; i++) {
+            _transferFrom(_from, _to[i], _id, _value);
+            require( 
+                _checkERC1155AndCallSafeTransfer(
+                    msg.sender,
+                    _from,
+                    _to[i],
+                    _id,
+                    _value,
+                    _data,
+                    false,
+                    false
+                ),
+                "rejected"
+            );
+        }
     }
 
     // NOTE: call data should be optimized to order _ids so packedBalance can be used efficiently
@@ -567,6 +595,7 @@ contract ERC1155ERC721 is OwnableProxyImpl, ERC1155, ERC721{
         erc721_operators[_id] = _operator;
         emit Approval(owner, _operator, _id);
     }
+
     function getApproved(uint256 _id)
         external
         view
@@ -575,6 +604,7 @@ contract ERC1155ERC721 is OwnableProxyImpl, ERC1155, ERC721{
         require(owners[_id] != address(0), "not exist"); 
         return erc721_operators[_id];
     }
+
     function transferFrom(address _from, address _to, uint256 _id) external {
         require(owners[_id] == _from, "_from"); 
         _transferFrom(_from, _to, _id, 1);
@@ -591,11 +621,13 @@ contract ERC1155ERC721 is OwnableProxyImpl, ERC1155, ERC721{
             )
         );
     }
+
     function safeTransferFrom(address _from, address _to, uint256 _id)
         external
     {
         safeTransferFrom(_from, _to, _id, "");
     }
+
     function safeTransferFrom(
         address _from,
         address _to,
