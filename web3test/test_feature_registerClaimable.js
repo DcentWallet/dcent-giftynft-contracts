@@ -1,19 +1,20 @@
+require("dotenv").config()
 const Web3 = require('web3');
 const abiNFT = require('../build/contracts/ERC1155ERC721.json')
 const abiClaimable = require('../build/contracts/RegistClaimable.json')
 
 //provider set
-const web3GanasheProvider = 'http://127.0.0.1:7545';
+const web3GanasheProvider = process.env.PROVIDER
 const web3 = new Web3(new Web3.providers.HttpProvider(web3GanasheProvider));
 const BN = web3.utils.BN;
 
 ////////////////////////////////////////////////////////////////////
 ////////////////////   SET CONFIG      /////////////////////////////
 ////////////////////////////////////////////////////////////////////
-const proxyAddress = '0x036d8A30a66530fdeE450133FDDAa81B8f21f08d'
-const registerClaimable = '0x910De2CC849f6Aad20f4877Fc1a5C0445802A8B7'
-const mintFee = '0.0001'
-const chainId = 5777
+const proxyAddress = process.env.PROXY
+const registerClaimable = process.env.REGISTER
+const mintFee = process.env.MINT_FEE
+const chainId = process.env.CHAIN_ID
 
 
 const NFTContract = new web3.eth.Contract(abiNFT.abi, proxyAddress)
@@ -37,7 +38,7 @@ const testClaimable = async () => {
   //Mint 1155 to accounts[1]
   console.log('=============MINT 1155==============================')
   let result = await NFTContract.methods
-    .mint(516, '0xaa0000aa', totalSupply, accounts[1], includeBalance.toString(), '0x0')
+    .mint(519, '0xaa0000aa', totalSupply, accounts[1], includeBalance.toString(), '0x0')
     .send({
       from: accounts[5],
       value: feeForMint.toString(),

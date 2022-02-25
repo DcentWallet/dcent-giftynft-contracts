@@ -1,17 +1,18 @@
+require("dotenv").config()
 const Web3 = require('web3');
 const abiNFT = require('../build/contracts/ERC1155ERC721.json')
 
 //provider set
-const web3GanasheProvider = 'http://127.0.0.1:7545';
+const web3GanasheProvider = process.env.PROVIDER
 const web3 = new Web3(new Web3.providers.HttpProvider(web3GanasheProvider));
 const BN = web3.utils.BN;
 
 ////////////////////////////////////////////////////////////////////
 ////////////////////   SET CONFIG      /////////////////////////////
 ////////////////////////////////////////////////////////////////////
-const proxyAddress = '0x61aCA5ad1Ca1174207Cc1c7019d7E7Be39D4337c'
-const mintFee = '0.0001'
-const chainId = 5777
+const proxyAddress = process.env.PROXY
+const mintFee = process.env.MINT_FEE
+const chainId = process.env.CHAIN_ID
 
 
 const NFTContract = new web3.eth.Contract(abiNFT.abi, proxyAddress)
